@@ -9,6 +9,8 @@ Vagrant.configure("2") do |config|
             virtualbox.cpus = "1"
         end
         c_1.vm.provision "shell", inline: "sudo ip route add 192.168.0.0/16 via 192.168.10.1"
+        c_1.vm.provision "shell", inline: "sudo apt install -y python3-pip"
+
     end
 
     config.vm.define :c_2 do | c_2 |
