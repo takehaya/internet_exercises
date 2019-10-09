@@ -1,6 +1,7 @@
 import os
 from base64 import encodebytes
 from util_http import * 
+from http import HTTPStatus
 # websocket supported version.
 VERSION = 13
 SUPPORTED_REDIRECT_STATUSES = [HTTPStatus.MOVED_PERMANENTLY, HTTPStatus.FOUND, HTTPStatus.SEE_OTHER]
@@ -22,7 +23,7 @@ def _get_handshake_header(resource, host, port, options):
     headers.append("Host: %s" % hostport)
     headers.append("Sec-WebSocket-Version: %s" % VERSION)
     headers.append("Sec-WebSocket-Key: %s" % key)
-    
+    headers.append("Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits")
     if "subprotocols" in options:
         headers.append("Sec-WebSocket-Protocol: %s" % ",".join(options["subprotocols"]))
 
@@ -37,16 +38,19 @@ def _pack_hostname(hostname):
 
 def handshake(sock, host, port, resource, **options):
     headers, _ = _get_handshake_header(resource, host, port, options)
-
     header_str = "\r\n".join(headers)
+    header_str += "\r\n\r\n"
+    print(header_str)
     send(sock, header_str)
     status, resp = _get_resp_headers(sock)
-    
+    print(status)
+    print(resp)
+
     if status in SUPPORTED_REDIRECT_STATUSES:
         return handshake_response(status, resp, None)
 
     # TODO:: check status validate!
-
+    
     return handshake_response(status, resp, options["subprotocols"])
 
 def _create_sec_websocket_key():

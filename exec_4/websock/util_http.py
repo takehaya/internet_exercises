@@ -2,8 +2,7 @@ import errno
 import os
 import socket
 import sys
-import six
-from six.moves.urllib.parse import urlparse
+from urllib.parse import urlparse
 
 TIMEOUT = None
 DEFAULT_SOCKET_OPTION = [(socket.SOL_TCP, socket.TCP_NODELAY, 1)]
@@ -38,11 +37,11 @@ def parse_url(url):
         resource += "?" + parsed.query
     return hostname, port, resource
 
-def connect(url, socket=None):
+def connect(url, sock=None):
     hostname, port, resource = parse_url(url)
 
-    if socket:
-        return socket, (hostname, port, resource)
+    if sock:
+        return sock, (hostname, port, resource)
     
     # dig
     addrinfo_list = socket.getaddrinfo(
@@ -68,14 +67,14 @@ def _open_socket(addrinfo_list):
         family, socktype, proto = addrinfo[:3]
         sock = socket.socket(family, socktype, proto)
         sock.settimeout(TIMEOUT)
-        sock.setsockopt(DEFAULT_SOCKET_OPTION)
+        sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
         
         addr = addrinfo[4]
-
         err = None
         while not err:
             try:
                 sock.connect(addr)
+                err = None
             except OSError as error:
                 # add err info
                 error.remote_ip = str(addr[0])
@@ -98,17 +97,17 @@ def _open_socket(addrinfo_list):
     else:
         if err:
             raise err
-    
+    print(sock)
     return sock
 
 def send(sock, data):
-    if isinstance(data, six.text_type):
-        data = data.encode('utf-8')
+    data = data.encode('utf-8')
     
     if not sock:
         raise Exception("socket is already closed.")
     try:
-        return sock.send(data)
+        print(data)
+        sock.send(data)
     except socket.timeout as e:
         raise e
     except Exception as e:
@@ -122,7 +121,7 @@ def recv(sock, bufsize):
     except socket.timeout as e:
         raise Exception(e)
     except Exception as e:
-            raise Exception(e)
+        raise Exception(e)
     
     if not bytedatas:
         raise Exception("Connection is already closed.")
@@ -134,9 +133,9 @@ def recv_line(sock):
     while True:
         c = recv(sock, 1)
         line.append(c)
-        if c == six.b("\n"):
+        if c == "\n":
             break
-    return six.b("").join(line)
+    return line
 
 
 def read_headers(sock):
