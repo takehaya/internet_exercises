@@ -24,3 +24,4 @@ You can communicate with the WebSocket server this.
 * close opcode send func
 * (server mode) application handler
 * TLS and proxy mode
+* etc... :cry:
