@@ -90,11 +90,14 @@ class WebSocket():
                 # 'NoneType' object has no attribute 'opcode'
                 raise Exception("Not a valid frame %s" % frame)
             elif frame.opcode in (ABNF.OPCODE_TEXT, ABNF.OPCODE_BINARY, ABNF.OPCODE_CONT):
-                self.cont_frame.validate(frame)
-                self.cont_frame.add(frame)
+                
+                # TODO:: flagment data sum getert
+                # self.cont_frame.validate(frame)
+                # self.cont_frame.add(frame)
 
-                if self.cont_frame.is_fire(frame):
-                    return self.cont_frame.extract(frame)
+                # if self.cont_frame.is_fire(frame):
+                #     return self.cont_frame.extract(frame)
+                return frame.opcode, frame
 
             elif frame.opcode == ABNF.OPCODE_CLOSE:
                 self.send_close()
@@ -129,18 +132,21 @@ class WebSocket():
             frame.get_mask_key = self.get_mask_key
         data = frame.formating()
         length = len(data)
-        print("send_frame")
-        print(data)
 
-        print("lock")
         with self.lock:
             while data:
-                print(type(data))
-                print(data)
                 l = self._send(data)
                 data = data[l:]
 
         return length
+
+    def send_close(self, status=STATUS_NORMAL, reason=""):
+        if status < 0 or  ABNF.LENGTH_16 <= status :
+            raise ValueError("status code is invalid range")
+        self.connected = False
+
+        close_ms = status.pack("!H", status) + reason
+        self.send(close_ms, ABNF.OPCODE_CLOSE)
 
 
 def create_connection(url, timeout=None, **options):

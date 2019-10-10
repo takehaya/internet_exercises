@@ -101,11 +101,9 @@ def _open_socket(addrinfo_list):
 
 def send(sock, data):
     # data = data.encode('utf-8')
-    
     if not sock:
         raise Exception("socket is already closed.")
     try:
-        print(data)
         return sock.send(data)
     except socket.timeout as e:
         raise e
@@ -116,6 +114,7 @@ def recv(sock, bufsize):
     if not sock:
         raise Exception("socket is already closed.")
     try:
+        # TODO: fix:f**k bulk read recvdata.
         bytedatas = sock.recv(bufsize)
     except socket.timeout as e:
         raise Exception(e)

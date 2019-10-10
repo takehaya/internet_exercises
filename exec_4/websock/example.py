@@ -8,4 +8,6 @@ print("Sent")
 print("Receiving...")
 result =  ws.recv()
 print("Received '%s'" % result)
-ws.close()
+
+# todo impliment
+# ws.close()

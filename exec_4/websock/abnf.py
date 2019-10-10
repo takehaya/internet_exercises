@@ -3,6 +3,23 @@ import threading
 import struct
 from util_http import *
 
+
+# closing frame status codes.
+STATUS_NORMAL = 1000
+STATUS_GOING_AWAY = 1001
+STATUS_PROTOCOL_ERROR = 1002
+STATUS_UNSUPPORTED_DATA_TYPE = 1003
+STATUS_STATUS_NOT_AVAILABLE = 1005
+STATUS_ABNORMAL_CLOSED = 1006
+STATUS_INVALID_PAYLOAD = 1007
+STATUS_POLICY_VIOLATION = 1008
+STATUS_MESSAGE_TOO_BIG = 1009
+STATUS_INVALID_EXTENSION = 1010
+STATUS_UNEXPECTED_CONDITION = 1011
+STATUS_BAD_GATEWAY = 1014
+STATUS_TLS_HANDSHAKE_ERROR = 1015
+
+
 class ABNF(object):
     """
     ABNF frame class.
@@ -100,13 +117,14 @@ class ABNF(object):
         
         origlen = len(data)
         _mask_key = mask_key[3] << 24 | mask_key[2] << 16 | mask_key[1] << 8 | mask_key[0]
-
+    
         # We need data to be a multiple of four...
         data += bytes(" " * (4 - (len(data) % 4)), "us-ascii")
         a = numpy.frombuffer(data, dtype="uint32")
         masked = numpy.bitwise_xor(a, [_mask_key]).astype("uint32")
         if len(data) > origlen:
             return masked.tobytes()[:origlen]
+        
         return masked.tobytes()
 
     @staticmethod
@@ -124,6 +142,7 @@ class ABNF(object):
         # mask must be set if send data from client
         return ABNF(fin, 0, 0, 0, opcode, 1, data)
 
+# send data buffer ¥
 class frame_buffer():
     _HEADER_MASK_INDEX = 5
     _HEADER_LENGTH_INDEX = 6
@@ -151,13 +170,15 @@ class frame_buffer():
             if self.has_length():
                 self.recv_length()
             length = self.length
-            # mask read
-            if self.has_mask():
-                self.recv_mask()
-            mask = self.mask
+
+            if has_mask:
+                # mask read
+                if self.has_mask():
+                    self.recv_mask()
+                mask = self.mask
 
             # payload
-            payload = self.recv_reader(length)
+            payload = self.recv_reader(length)[0]
             if has_mask:
                 payload = ABNF.mask(mask, payload)
 
@@ -173,10 +194,8 @@ class frame_buffer():
     
     def recv_header(self):
         header = self.recv_reader(2)
-        tmp_b1 = header[0]
-        print("recv header1")
-        print(tmp_b1)
-        b1 = int.from_bytes(tmp_b1, byteorder='big')
+
+        b1 = header[0][0]
 
         fin = b1 >> 7 & 1
         rsv1 = b1 >> 6 & 1
@@ -184,8 +203,7 @@ class frame_buffer():
         rsv3 = b1 >> 4 & 1
         opcode = b1 & 0xf
 
-        tmp_b2 = header[1]
-        b2 = int.from_bytes(tmp_b2, byteorder='big')
+        b2 = header[0][1]
         has_mask = (b2 >> 7) & 1
         length_bits = b2 & 0x7f
 

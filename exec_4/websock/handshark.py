@@ -40,11 +40,8 @@ def handshake(sock, host, port, resource, **options):
     headers, _ = _get_handshake_header(resource, host, port, options)
     header_str = "\r\n".join(headers)
     header_str += "\r\n\r\n"
-    print(header_str)
     send(sock, header_str.encode('utf-8'))
     status, resp = _get_resp_headers(sock)
-    print(status)
-    print(resp)
 
     if status in SUPPORTED_REDIRECT_STATUSES:
         return handshake_response(status, resp, None)
@@ -59,8 +56,6 @@ def _create_sec_websocket_key():
     return encodebytes(randomness).decode('utf-8').strip()
 
 def _get_resp_headers(sock, success_statuses=(101, 301, 302, 303)):
-    print("_get_resp_headers")
-
     status, resp_headers, status_message = read_headers(sock)
     if status not in success_statuses:
         raise Exception("Handshake status %d %s", status, status_message, resp_headers)
