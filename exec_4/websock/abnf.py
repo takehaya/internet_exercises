@@ -58,46 +58,39 @@ class ABNF(object):
         if any(x not in (0, 1) for x in [self.fin, self.rsv1, self.rsv2, self.rsv3]):
             raise ValueError("not 0 or 1")
         if self.opcode not in ABNF.OPCODES:
-            raise ValueError("Invalid OPCODE")
-        
+            raise ValueError("Invalid OPCODE")   
         length = len(self.data)
         if length >= ABNF.LENGTH_63:
             raise ValueError("data is too long")
-        frame_header = chr(
-            self.fin << 7
-            | self.rsv1 << 6 
-            | self.rsv2 << 5 
-            | self.rsv3 << 4
-            | self.opcode
-        )
-
+        frame_header = (self.fin << 7| self.rsv1 << 6 | self.rsv2 << 5 | self.rsv3 << 4| self.opcode).to_bytes(1, byteorder='big')
         if length < ABNF.LENGTH_7:
-            frame_header += chr(self.mask << 7 | length)
+            frame_header += (self.mask << 7 | length).to_bytes(1, byteorder='big')
         elif length < ABNF.LENGTH_16:
             # 0x7e == 126
             # ペイロードの長さが16bitよりも長いのでそのときはpayload lenを126にして
             # extend payloadを利用すること示さなくてはいけない。
             #  If 126, the following 2 bytes interpreted as a 16-bit unsigned integer are the payload length.
-            frame_header += chr(self.mask << 7| 0x7e)
+            frame_header += (self.mask << 7| 0x7e).to_bytes(1, byteorder='big')
             frame_header += struct.pack("!H", length)
         else:
             # 0x7f == 127
             # ペイロードの長さが16bitよりも長いのでそのときはpayload lenを127にして
             # extend payloadと extend payload length conttinuedを利用すること示さなくてはいけない。
             # If 127, the following 8 bytes interpreted as a 64-bit unsigned integer (the most significant bit MUST be 0)
-            frame_header += chr(self.mask << 7 | 0x7f)
+            frame_header += (self.mask << 7 | 0x7f).to_bytes(1, byteorder='big')
             frame_header += struct.pack("!Q", length)
-        
+    
         if not self.mask:
             return frame_header + self.data
         else:
             mask_key = self.get_mask_key(4)
-            return frame_header + self._get_masked(mask_key)
+            ms = self._get_masked(mask_key)
+
+            return frame_header + ms
     
     def _get_masked(self, mask_key):
         s = ABNF.mask(mask_key, self.data)
-        mask_key = mask_key.encode('utf-8')
-
+        # mask_key = mask_key.hex()
         return mask_key + s
 
     @staticmethod
@@ -126,7 +119,7 @@ class ABNF(object):
         opcode: operation code. please see OPCODE_XXX.
         fin: fin flag. if set to 0, create continue fragmentation.
         """
-        if opcode == ABNF.OPCODE_TEXT and isinstance(data, six.text_type):
+        if opcode == ABNF.OPCODE_TEXT:
             data = data.encode("utf-8")
         # mask must be set if send data from client
         return ABNF(fin, 0, 0, 0, opcode, 1, data)
@@ -138,13 +131,14 @@ class frame_buffer():
     def __init__(self, recv_fn):
         self.recv = recv_fn
         self.recv_buffer = []
-        self.clear
+        self.clear()
         self.lock = threading.Lock()
 
     def clear(self):
         self.header = None
         self.length = None
         self.mask = None
+        
     
     def recv_frame(self):
         with self.lock:
@@ -163,7 +157,7 @@ class frame_buffer():
             mask = self.mask
 
             # payload
-            payload = self.recv_strict(length)
+            payload = self.recv_reader(length)
             if has_mask:
                 payload = ABNF.mask(mask, payload)
 
@@ -178,8 +172,11 @@ class frame_buffer():
         return self.header is None
     
     def recv_header(self):
-        header = self.recv_strict(2)
-        b1 = header[0]
+        header = self.recv_reader(2)
+        tmp_b1 = header[0]
+        print("recv header1")
+        print(tmp_b1)
+        b1 = int.from_bytes(tmp_b1, byteorder='big')
 
         fin = b1 >> 7 & 1
         rsv1 = b1 >> 6 & 1
@@ -187,9 +184,9 @@ class frame_buffer():
         rsv3 = b1 >> 4 & 1
         opcode = b1 & 0xf
 
-        b2 = header[1]
-
-        has_mask = b2 >> 7 & 1
+        tmp_b2 = header[1]
+        b2 = int.from_bytes(tmp_b2, byteorder='big')
+        has_mask = (b2 >> 7) & 1
         length_bits = b2 & 0x7f
 
         self.header = (fin, rsv1, rsv2, rsv3, opcode, has_mask, length_bits)

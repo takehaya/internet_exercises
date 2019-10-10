@@ -97,17 +97,16 @@ def _open_socket(addrinfo_list):
     else:
         if err:
             raise err
-    print(sock)
     return sock
 
 def send(sock, data):
-    data = data.encode('utf-8')
+    # data = data.encode('utf-8')
     
     if not sock:
         raise Exception("socket is already closed.")
     try:
         print(data)
-        sock.send(data)
+        return sock.send(data)
     except socket.timeout as e:
         raise e
     except Exception as e:
@@ -129,11 +128,11 @@ def recv(sock, bufsize):
     return bytedatas
 
 def recv_line(sock):
-    line = []
+    line = ""
     while True:
         c = recv(sock, 1)
-        line.append(c)
-        if c == "\n":
+        line += c.decode('utf-8')
+        if c.decode("utf-8") == "\n":
             break
     return line
 
@@ -145,7 +144,7 @@ def read_headers(sock):
 
     while True:
         line = recv_line(sock)
-        line = line.decode('utf-8').strip()
+        line = line.strip()
         if not line:
             break
         if not status:

@@ -127,11 +127,16 @@ class WebSocket():
     def send_frame(self, frame):
         if self.get_mask_key:
             frame.get_mask_key = self.get_mask_key
-        data = frame.format()
+        data = frame.formating()
         length = len(data)
+        print("send_frame")
+        print(data)
 
+        print("lock")
         with self.lock:
             while data:
+                print(type(data))
+                print(data)
                 l = self._send(data)
                 data = data[l:]
 
